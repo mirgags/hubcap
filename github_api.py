@@ -24,7 +24,7 @@ def getPass():
 ### Create authorization handler for TeamworkPM
 def authUrl(theurl):
     passman = urllib2.HTTPPasswordMgrWithDefaultRealm()
-    passman.add_password(realm=None,                                                                uri=theurl,                                                                user=getUser(),                                                            passwd=getPass())
+    passman.add_password(realm='GitHub.com',                                                        uri=theurl,                                                                user=getUser(),                                                            passwd=getPass())
     
     authhandler = urllib2.HTTPBasicAuthHandler(passman)
 
@@ -36,7 +36,7 @@ def authUrl(theurl):
 ### GET request to establish parameters
 def getUrl(theurl):
     
-    auth = 'Basic ' + base64.urlsafe_b64encode(getUser()+":"+getPass())
+    auth = 'Basic ' + base64.urlsafe_b64encode('%s:' % getUser() )
     req = urllib2.Request(theurl)
     req.add_header('Authorization', auth)
     req.add_header('Content-Type', 'application/json')
@@ -56,10 +56,6 @@ def postUrl(theurl, thePost):
     req.add_header('user-agent', getUser())
 
     return urllib2.urlopen(req, json.dumps(thePost))
-
-    req.add_header('Authorization', auth)
-    req.add_header('Content-Type', 'application/json')
-    req.add_header('user-agent', getUser())
 
 response = getUrl('https://api.github.com/users')
 print response.info()
