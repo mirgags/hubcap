@@ -67,7 +67,9 @@ for user in responseList:
     print 'id: %s' % user['id']
 #    userResponse = getUrl('https://api.github.com/users/%s' % user['login'])
 #    userDict[str(user['login'])] = json.loads(userResponse.read())
-
+    nextUrl = response.info()['Link']
+    nextUrl = nextUrl[1:nextUrl.find('>')]
     count += 1
 print response.info()
+print nextUrl
 #print userDict['mojombo']
