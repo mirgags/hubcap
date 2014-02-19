@@ -34,16 +34,17 @@ def authUrl(theurl):
     return
 
 ### GET request to establish parameters
-def getUrl(theurl):
-    
+def getUrl(theurl, data=None):
     auth = 'Basic ' + base64.urlsafe_b64encode('%s:' % getUser() )
-    req = urllib2.Request(theurl)
+    if data:
+        data = urllib.urlencode(data)
+        print data
+    req = urllib2.Request('%s?%s' % (theurl, data))
     req.add_header('Authorization', auth)
     req.add_header('Content-Type', 'application/json')
     req.add_header('user-agent', getUser())
 
     pagehandle = urllib2.urlopen(req)
-#    return pagehandle.read()
     return pagehandle
 
 ### POST request accepts the Teamwork-specific URL and a JSON object with      the necessary parameters for the action.
@@ -57,5 +58,16 @@ def postUrl(theurl, thePost):
 
     return urllib2.urlopen(req, json.dumps(thePost))
 
-response = getUrl('https://api.github.com/users')
+response = getUrl('https://api.github.com/users?')
+responseList = json.loads(response.read())
+count = 0
+userDict = {}
+for user in responseList:
+    print user['login']
+    print 'id: %s' % user['id']
+#    userResponse = getUrl('https://api.github.com/users/%s' % user['login'])
+#    userDict[str(user['login'])] = json.loads(userResponse.read())
+
+    count += 1
 print response.info()
+#print userDict['mojombo']
