@@ -58,18 +58,25 @@ def postUrl(theurl, thePost):
 
     return urllib2.urlopen(req, json.dumps(thePost))
 
-response = getUrl('https://api.github.com/users?')
-responseList = json.loads(response.read())
-count = 0
-userDict = {}
-for user in responseList:
-    print user['login']
-    print 'id: %s' % user['id']
-#    userResponse = getUrl('https://api.github.com/users/%s' % user['login'])
-#    userDict[str(user['login'])] = json.loads(userResponse.read())
-    nextUrl = response.info()['Link']
-    nextUrl = nextUrl[1:nextUrl.find('>')]
-    count += 1
+pingsRemaining = 5000 #max per hour limit of Github
+nextUrl = None
+while pingRemaining > 4500: #arbitrary floor for call limit
+    if not nextUrl:
+        response = getUrl('https://api.github.com/users?')
+    else:
+        response = getUrl(nextUrl)
+    responseList = json.loads(response.read())
+    count = 0
+    userDict = {}
+    
+    for user in responseList:
+#        print user['login']
+#        print 'id: %s' % user['id']
+    #    userResponse = getUrl('https://api.github.com/users/%s' % user['login'])
+    #    userDict[str(user['login'])] = json.loads(userResponse.read())
+        nextUrl = response.info()['Link']
+        nextUrl = nextUrl[1:nextUrl.find('>')]
+        count += 1
 print response.info()
 print nextUrl
 #print userDict['mojombo']
