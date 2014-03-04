@@ -4,6 +4,8 @@ import urllib2
 import json
 import datetime
 import base64
+import re
+import pickle
 
 
 ### Retrieve API key from local file ./teamworkpm_api_key.txt
@@ -58,25 +60,43 @@ def postUrl(theurl, thePost):
 
     return urllib2.urlopen(req, json.dumps(thePost))
 
+if os.path.isfile('gitDict.pkl'):
+    f = open('gitDict.pkl', 'wb')
+    userDict = pickle.load(f)
+    f.close()
+else:
+    userDict = {}
+
+pattern = re.compile('san francisco', re.I)
 pingsRemaining = 5000 #max per hour limit of Github
 nextUrl = None
-while pingRemaining > 4500: #arbitrary floor for call limit
+while pingsRemaining > 4620: #arbitrary floor for call limit
     if not nextUrl:
         response = getUrl('https://api.github.com/users?')
     else:
         response = getUrl(nextUrl)
     responseList = json.loads(response.read())
     count = 0
-    userDict = {}
     
     for user in responseList:
-#        print user['login']
-#        print 'id: %s' % user['id']
-    #    userResponse = getUrl('https://api.github.com/users/%s' % user['login'])
-    #    userDict[str(user['login'])] = json.loads(userResponse.read())
+        print user['login']
+        print 'id: %s' % user['id']
+        userResponse = getUrl('https://api.github.com/users/%s' % user['login'])
+        thisUser = json.loads(userResponse.read())
+        if 'location' in thisUser:
+            if thisUser['location']:
+                if pattern.match(thisUser['location']):
+                    userDict[str(user['login'])] = thisUser #json.loads(userResponse.read())
         nextUrl = response.info()['Link']
         nextUrl = nextUrl[1:nextUrl.find('>')]
+        pingsRemaining = int(response.info()['X-RateLimit-Remaining'])
         count += 1
-print response.info()
-print nextUrl
+#        print userDict
+    print pingsRemaining
+    print response.info()
+    print nextUrl
+print userDict
+f = open('gitDict.pkl', 'wb')
+pickle.dump(userDict, f)
+f.close()
 #print userDict['mojombo']
