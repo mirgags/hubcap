@@ -60,21 +60,11 @@ def postUrl(theurl, thePost):
 
     return urllib2.urlopen(req, json.dumps(thePost))
 
-if os.path.isfile('gitDict.pkl'):
-    f = open('gitDict.pkl', 'wb')
-    userDict = pickle.load(f)
-    f.close()
-else:
-    userDict = {}
-
-pattern = re.compile('san francisco', re.I)
-pingsRemaining = 5000 #max per hour limit of Github
-nextUrl = None
-while pingsRemaining > 4620: #arbitrary floor for call limit
-    if not nextUrl:
-        response = getUrl('https://api.github.com/users?')
+def githubUsers(pattern, userDict):
+    if userDict['lastUser']:
+        response = getUrl('https://api.github.com/users?since=%s' % userDict['lastUser'])
     else:
-        response = getUrl(nextUrl)
+        response = getUrl('https://api.github.com/users')
     responseList = json.loads(response.read())
     count = 0
     
@@ -86,15 +76,33 @@ while pingsRemaining > 4620: #arbitrary floor for call limit
         if 'location' in thisUser:
             if thisUser['location']:
                 if pattern.match(thisUser['location']):
-                    userDict[str(user['login'])] = thisUser #json.loads(userResponse.read())
-        nextUrl = response.info()['Link']
-        nextUrl = nextUrl[1:nextUrl.find('>')]
+                    userDict['users'][str(user['login'])] = thisUser #json.loads(userResponse.read())
+        userDict['nextUrl'] = response.info()['Link']
         pingsRemaining = int(response.info()['X-RateLimit-Remaining'])
+        userDict['ratelimitReset'] = int(response.info()['X-RateLimit-Reset'])
+        userDict['ratelimitRemaining'] = int(response.info()['X-RateLimit-Remaining'])
+
+        userDict['lastUser'] = thisUser['id']
         count += 1
-#        print userDict
+    userDict['nextUrl'] = userDict['nextUrl'][1:userDict['nextUrl'].find('>')]
     print pingsRemaining
-    print response.info()
-    print nextUrl
+    print userDict['ratelimitReset']
+    print userDict['nextUrl']
+    return githubUsers(pattern, userDict)
+
+if os.path.isfile('gitDict.pkl'):
+    f = open('gitDict.pkl', 'rb')
+    userDict = pickle.load(f)
+    f.close()
+else:
+    userDict = {'nextUrl': None, 'lastUser': None, 'ratelimitReset': None, 'ratelimitRemaining': 5000, 'users': {}}
+
+pattern = re.compile('san francisco', re.I)
+nextUrl = None
+
+while userDict['ratelimitRemaining'] > 299:
+    userDict = githubUsers(pattern, userDict)
+   
 print userDict
 f = open('gitDict.pkl', 'wb')
 pickle.dump(userDict, f)
