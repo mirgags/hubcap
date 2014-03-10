@@ -6,6 +6,8 @@ import datetime
 import base64
 import re
 import pickle
+import time
+import shelve
 
 
 ### Retrieve API key from local file ./teamworkpm_api_key.txt
@@ -88,7 +90,10 @@ def githubUsers(pattern, userDict):
     print pingsRemaining
     print userDict['ratelimitReset']
     print userDict['nextUrl']
-    return githubUsers(pattern, userDict)
+    if userDict['ratelimitRemaining'] > 299:
+        return githubUsers(pattern, userDict)
+    else:
+        return userDict
 
 if os.path.isfile('gitDict.pkl'):
     f = open('gitDict.pkl', 'rb')
@@ -97,14 +102,22 @@ if os.path.isfile('gitDict.pkl'):
 else:
     userDict = {'nextUrl': None, 'lastUser': None, 'ratelimitReset': None, 'ratelimitRemaining': 5000, 'users': {}}
 
-pattern = re.compile('san francisco', re.I)
-nextUrl = None
+if __name__ == '__main__':
+    pattern = re.compile('san diego', re.I)
+    nextUrl = None
+    while userDict['lastUser'] < 100000:
+        if userDict['ratelimitRemaining'] > 299: 
+            userDict = githubUsers(pattern, userDict)
+        else:
+            if userDict['ratelimitReset'] - time.time() >= 0:
+                print 'sleeping'
+                time.sleep(30)
+            else:
+                userDict['ratelimitRemaining'] = 5000
 
-while userDict['ratelimitRemaining'] > 299:
-    userDict = githubUsers(pattern, userDict)
-   
-print userDict
-f = open('gitDict.pkl', 'wb')
-pickle.dump(userDict, f)
-f.close()
-#print userDict['mojombo']
+    f = open('gitDict.pkl', 'wb')
+    pickle.dump(userDict, f)
+    f.close()
+    #print userDict['mojombo']      
+    #print userDict
+
