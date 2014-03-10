@@ -90,6 +90,9 @@ def githubUsers(pattern, userDict):
     print pingsRemaining
     print userDict['ratelimitReset']
     print userDict['nextUrl']
+    f = open('gitDict.pkl', 'wb')
+    pickle.dump(userDict, f)
+    f.close()
     if userDict['ratelimitRemaining'] > 299:
         return githubUsers(pattern, userDict)
     else:
@@ -105,19 +108,15 @@ else:
 if __name__ == '__main__':
     pattern = re.compile('san diego', re.I)
     nextUrl = None
-    while userDict['lastUser'] < 100000:
+    while userDict['lastUser'] < 40000:
         if userDict['ratelimitRemaining'] > 299: 
             userDict = githubUsers(pattern, userDict)
+            
         else:
-            if userDict['ratelimitReset'] - time.time() >= 0:
+            while userDict['ratelimitReset'] - time.time() >= 0:
                 print 'sleeping'
                 time.sleep(30)
-            else:
-                userDict['ratelimitRemaining'] = 5000
-
-    f = open('gitDict.pkl', 'wb')
-    pickle.dump(userDict, f)
-    f.close()
-    #print userDict['mojombo']      
-    #print userDict
+            userDict['ratelimitRemaining'] = 5000
+        #print userDict['mojombo']      
+        #print userDict
 
