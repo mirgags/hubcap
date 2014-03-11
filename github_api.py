@@ -10,7 +10,7 @@ import time
 import shelve
 
 
-### Retrieve API key from local file ./teamworkpm_api_key.txt
+### Retrieve API key from local file user.txt
 def getUser():
     curPath = os.getcwd()
     f = open('%s/user.txt' % curPath, 'rb')
@@ -18,14 +18,15 @@ def getUser():
     f.close()
     return user
 
-def getPass():
-    curPath = os.getcwd()
-    f = open('%s/user.txt' % curPath, 'rb')
-    passwd = f.readline().strip()
-    f.close()
-    return passwd
+### Using Basic auth no password needed
+#def getPass():
+#    curPath = os.getcwd()
+#    f = open('%s/user.txt' % curPath, 'rb')
+#    passwd = f.readline().strip()
+#    f.close()
+#    return passwd
 
-### Create authorization handler for TeamworkPM
+### Create authorization handler for Github
 def authUrl(theurl):
     passman = urllib2.HTTPPasswordMgrWithDefaultRealm()
     passman.add_password(realm='GitHub.com',                                                        uri=theurl,                                                                user=getUser(),                                                            passwd=getPass())
@@ -55,7 +56,7 @@ def getUrl(theurl, data=None):
 def postUrl(theurl, thePost):
 
     req = urllib2.Request(theurl)
-    auth = 'Basic ' + base64.urlsafe_b64encode("%s:%s" % (getApiKey(), 'x'))
+    auth = 'Basic '+base64.urlsafe_b64encode("%s:%s" % (getApiKey(), 'x'))
     req.add_header('Authorization', auth)
     req.add_header('Content-Type', 'application/json')
     req.add_header('user-agent', getUser())
@@ -64,7 +65,7 @@ def postUrl(theurl, thePost):
 
 def githubUsers(pattern, userDict):
     if userDict['lastUser']:
-        response = getUrl('https://api.github.com/users?since=%s' % userDict['lastUser'])
+        response = getUrl('https://api.github.com/users?since=%s' %                                  userDict['lastUser']['id'])
     else:
         response = getUrl('https://api.github.com/users')
     responseList = json.loads(response.read())
@@ -73,50 +74,49 @@ def githubUsers(pattern, userDict):
     for user in responseList:
         print user['login']
         print 'id: %s' % user['id']
-        userResponse = getUrl('https://api.github.com/users/%s' % user['login'])
-        thisUser = json.loads(userResponse.read())
-        if 'location' in thisUser:
-            if thisUser['location']:
-                if pattern.match(thisUser['location']):
-                    userDict['users'][str(user['login'])] = thisUser #json.loads(userResponse.read())
-        userDict['nextUrl'] = response.info()['Link']
-        pingsRemaining = int(response.info()['X-RateLimit-Remaining'])
-        userDict['ratelimitReset'] = int(response.info()['X-RateLimit-Reset'])
-        userDict['ratelimitRemaining'] = int(response.info()['X-RateLimit-Remaining'])
-
-        userDict['lastUser'] = thisUser['id']
-        count += 1
-    userDict['nextUrl'] = userDict['nextUrl'][1:userDict['nextUrl'].find('>')]
+        try:
+            userResponse = getUrl('https://api.github.com/users/%s' %                                        user['login'])
+            thisUser = json.loads(userResponse.read())
+            if 'location' in thisUser:
+                if thisUser['location']:
+                    if pattern.match(thisUser['location']):
+                        userDict['users'][str(user['login'])] = thisUser 
+            userDict['nextUrl'] = response.info()['Link']
+            pingsRemaining = int(response.info()['X-RateLimit-Remaining'])
+            userDict['ratelimitReset'] =                                                                    int(response.info()['X-RateLimit-Reset'])
+            userDict['ratelimitRemaining'] =                                                            int(response.info()['X-RateLimit-Remaining'])
+    
+            userDict['lastUser'] = thisUser
+            count += 1
+        except:
+            pass
+    userDict['nextUrl'] =                                                                        userDict['nextUrl'][1:userDict['nextUrl'].find('>')]
     print pingsRemaining
     print userDict['ratelimitReset']
     print userDict['nextUrl']
     f = open('gitDict.pkl', 'wb')
     pickle.dump(userDict, f)
     f.close()
-    if userDict['ratelimitRemaining'] > 299:
+    if (userDict['ratelimitRemaining'] > 299 and                                   userDict['lastUser']['id'] < 56100):
         return githubUsers(pattern, userDict)
     else:
         return userDict
 
-if os.path.isfile('gitDict.pkl'):
-    f = open('gitDict.pkl', 'rb')
-    userDict = pickle.load(f)
-    f.close()
-else:
-    userDict = {'nextUrl': None, 'lastUser': None, 'ratelimitReset': None, 'ratelimitRemaining': 5000, 'users': {}}
-
 if __name__ == '__main__':
+    if os.path.isfile('gitDict.pkl'):
+        f = open('gitDict.pkl', 'rb')
+        userDict = pickle.load(f)
+    #    userDict['lastUser'] = {'id': 55678}
+        f.close()
+    else:
+        userDict = {'nextUrl': None,                                                           'lastUser': None,                                                          'ratelimitReset': None,                                                    'ratelimitRemaining': 5000,                                                'users': {}                                                               }
+    
     pattern = re.compile('san diego', re.I)
     nextUrl = None
-    while userDict['lastUser'] < 40000:
-        if userDict['ratelimitRemaining'] > 299: 
-            userDict = githubUsers(pattern, userDict)
-            
-        else:
-            while userDict['ratelimitReset'] - time.time() >= 0:
-                print 'sleeping'
-                time.sleep(30)
-            userDict['ratelimitRemaining'] = 5000
-        #print userDict['mojombo']      
-        #print userDict
-
+    if userDict['ratelimitRemaining'] > 299: 
+        userDict = githubUsers(pattern, userDict)
+    else:
+        while userDict['ratelimitReset'] - time.time() >= 0:
+            print 'sleeping'
+            time.sleep(30)
+        userDict['ratelimitRemaining'] = 5000
