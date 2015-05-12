@@ -70,17 +70,22 @@ def githubUsers(userDict):
         theUrl = userDict['nextUrl']
     else:
         theUrl = 'https://api.github.com/search/users'
-        theParams = urllib.urlencode(userDict['params'])
-        theParams = 'q=' + theParams.replace('=', ':')
-    print 'request url: ' + theUrl + '?%s' + theParams
+        theParams = '?q=+%s' % urllib.quote_plus(userDict['params'])
+        print 'pre-regex url: %s%s' % (theUrl, theParams)
+#        theParams = re.sub('(?<!\?q)=',':',theParams)
+        theUrl += theParams
+        theParams = None
+        print 'request url: %s%s' % (theUrl, theParams)
     response = getUrl(theUrl, theParams)
     responseList = json.loads(response.read())
-#    print response.info()
+    print 'search results: ' + str(responseList['total_count'])
+    print response.info()
     for user in responseList['items']:
         print user['login']
         #print 'id: %s' % user['id']
         userDict['users'][str(user['login'])] = user
     linkTuples = response.info()['Link'].split(',')
+    print json.dumps(linkTuples)
     for theTuple in linkTuples:
         print json.dumps(theTuple)
         if theTuple.count('next') > 0:
@@ -109,15 +114,14 @@ def githubUsers(userDict):
         return githubUsers(userDict)
 
 if __name__ == '__main__':
-    parameters = {'location': 'san diego',\
-                  'type': 'user'}
+    location = 'location:"san diego"'
     if os.path.isfile('gitDict.pkl'):
         f = open('gitDict.pkl', 'rb')
         userDict = pickle.load(f)
         userDict['lastUser'] = {'id': 0}
         f.close()
     else:
-        userDict = {'nextUrl': None,                                                           'lastUser': None,                                                          'ratelimitReset': None,                                                    'ratelimitRemaining': 30,                                                'params': parameters,                                                      'users': {}                                                               }
+        userDict = {'nextUrl': None,                                                           'lastUser': None,                                                          'ratelimitReset': None,                                                    'ratelimitRemaining': 30,                                                'params': location,                                                      'users': {}                                                               }
     userDict = githubUsers(userDict)
     f = open('gitDict.pkl', 'wb')
     pickle.dump(userDict, f)
