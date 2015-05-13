@@ -8,7 +8,7 @@ import re
 import pickle
 import time
 import shelve
-
+import urlparse
 
 ### Retrieve API key from local file user.txt
 def getUser():
@@ -83,7 +83,7 @@ def githubUsers(userDict):
     for user in responseList['items']:
         print user['login']
         #print 'id: %s' % user['id']
-        userDict['users'][str(user['login'])] = user
+        userDict['users'].append(user)
     linkTuples = response.info()['Link'].split(',')
     print json.dumps(linkTuples)
     for theTuple in linkTuples:
@@ -94,9 +94,11 @@ def githubUsers(userDict):
         if theTuple.count('last') > 0:
             print 'found last'
             userDict['lastUrl'] = theTuple[theTuple.find('<')+1:theTuple.find('>')]
-        if theTuple.count('first') > 0:
-            print 'found first'
-            return userDict
+            linkParams = urlparse.urlsplit(userDict['lastUrl'])
+            qStr = urlparse.parse_qs(linkParams[3])
+            print qStr
+            userDict['lastPage'] = int(qStr['page'][0])
+            print 'Last Page: ' + str(userDict['lastPage'])
     print 'nextUrl: ' + userDict['nextUrl']
     pingsRemaining = int(response.info()['X-RateLimit-Remaining'])
     userDict['ratelimitReset'] =                                                                    int(response.info()['X-RateLimit-Reset'])
@@ -104,14 +106,36 @@ def githubUsers(userDict):
     print pingsRemaining
     print userDict['ratelimitReset']
     print userDict['nextUrl']
+    linkParams = urlparse.urlsplit(theUrl)
+    qStr = urlparse.parse_qs(linkParams[3])
+    print qStr
+    try:
+        currentPage = int(qStr['page'][0])
+        print 'Current Page: ' + str(currentPage)
+    except KeyError:
+        currentPage = 1
+    if currentPage == userDict['lastPage']:
+        return userDict
+    else:
+        if (userDict['ratelimitRemaining'] > 0):
+            return githubUsers(userDict)
+        else:
+            while userDict['ratelimitReset'] - time.time() >= 0:
+                print 'sleeping'
+                time.sleep(30)
+            userDict['ratelimitRemaining'] = 30
+            return githubUsers(userDict)
+
+def getSingleUser(userURL, userDict):
     if (userDict['ratelimitRemaining'] > 0):
-        return githubUsers(userDict)
+        res = getUrl(userURL, None)
+        return [json.loads(res.read()), userDict]
     else:
         while userDict['ratelimitReset'] - time.time() >= 0:
             print 'sleeping'
             time.sleep(30)
-        userDict['ratelimitRemaining'] = 30
-        return githubUsers(userDict)
+        userDict['ratelimitRemaining'] = 1
+        getSingleUser(userURL, userDict)
 
 if __name__ == '__main__':
     location = 'location:"san diego"'
@@ -121,14 +145,39 @@ if __name__ == '__main__':
         userDict['lastUser'] = {'id': 0}
         f.close()
     else:
-        userDict = {'nextUrl': None,                                                           'lastUser': None,                                                          'ratelimitReset': None,                                                    'ratelimitRemaining': 30,                                                'params': location,                                                      'users': {}                                                               }
+        userDict = {'nextUrl': None,                                                           'lastUser': None,                                                          'lastPage': None,                                                          'ratelimitReset': None,                                                    'ratelimitRemaining': 30,                                                'params': location,                                                      'users': []                                                               }
     userDict = githubUsers(userDict)
     f = open('gitDict.pkl', 'wb')
     pickle.dump(userDict, f)
     f.close()
     f = open('newCSV.csv', 'wb')
+#    f.write(json.dumps(userDict['users']))
     with f:
-        for user in userDict:
-            f.write(user)
+        for user in userDict['users']:
+            print user['url']
+            userRes = getSingleUser(user['url'], userDict)
+            print 'Writing *****\n' + json.dumps(userRes[0])
+            lineToWrite = ''
+            keyList = [
+                'login',\
+                'html_url',\
+                'followers_url',\
+                'name',\
+                'company',\
+                'blog',\
+                'email',\
+                'hireable',\
+                'location',\
+                'followers',\
+                'public_repos'
+            ]
+            for key in keyList:
+                try:
+                    lineToWrite += userList[0][key]
+                except TypeError:
+                    pass
+                lineToWrite += '^'
+            lineToWrite += '\n'
+            f.write(lineToWrite)
     f.close()
 
